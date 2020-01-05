@@ -31,7 +31,9 @@
 
         public override int GetHashCode()
         {
-            int hCode = (int)Point1.X ^ (int)Point1.Y ^ (int)Point2.X ^ (int)Point2.Y;
+            double eps = 0.0005;
+            long hCode = (long) (Point1.X/eps) ^ (long) (Point1.Y/eps) ^ 
+                (long) (Point2.X/eps) ^ (long)(Point2.Y/eps);
             return hCode.GetHashCode();
         }
     }
