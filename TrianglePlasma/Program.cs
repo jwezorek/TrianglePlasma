@@ -28,22 +28,31 @@ namespace TrianglePlasma
                 GetPerturbationFunction(options.ValuePerturbationMethod)
             );
 
-            var image = GenerateImage(triangles, options.Width, options.Height, GetColorFunction(options.ColorBlend));
-            if (options.Scale > 0.0f && options.Scale < 1.0f)
-                image = ScaleImage(image, options.Scale);
+            Console.WriteLine("plasma complete. Writing '{0}'...", options.OutputFileName);
+            if (IsRasterFormat(options.OutputFileName))
+            {
+                var image = GenerateImage(triangles, options.Width, options.Height, GetColorFunction(options.ColorBlend));
+                if (options.Scale > 0.0f)
+                    image = ScaleImage(image, options.Scale);
 
-            image.Save( options.OutputFileName );
+                image.Save(options.OutputFileName);
+            }
+            else
+            {
+                var svg = GenerateSvg(triangles, options.Width, options.Height, options.Scale, GetColorFunction(options.ColorBlend));
+                File.WriteAllText(options.OutputFileName, svg);
+            }
         }
 
         static IEnumerable<Triangle> GenerateTrianglePlasma(int width, int height, float initial_sz_pcnt, double min_area_pcnt, double param,
                      double? contrast, Func<double,double,double,double> perturb)
         {
-            var min_area = min_area_pcnt * (width*height);
-            var sz = Math.Min((float)width, (float)height);
-
             var triangulator = new DelaunayTriangulator(width, height);
             triangulator.AddVertices(
-                UniformPoissonDiskSampler.SampleRectangle(new Vertex(0, 0), new Vertex(width, height), sz * initial_sz_pcnt)
+                UniformPoissonDiskSampler.SampleRectangle(
+                    new Vertex(0, 0), new Vertex(width, height), 
+                    Math.Min(width,height) * initial_sz_pcnt
+                )
             );
             foreach (var v in triangulator.Vertices)
                 v.Value = perturb(0.5, 1.0, param);
@@ -51,6 +60,7 @@ namespace TrianglePlasma
             var areas = triangulator.Triangles.Select(t => t.Area);
             var base_area = areas.Sum() / (double) areas.Count();
             int count = triangulator.Triangles.Count();
+            var min_area = min_area_pcnt * (width * height);
             bool done = false;
 
             Console.WriteLine("Generating plasma from {0} seed triangles.", triangulator.Triangles.Count());
@@ -82,6 +92,12 @@ namespace TrianglePlasma
                 ApplyContrast(vertices, contrast.Value);
 
             return triangulator.Triangles;
+        }
+
+        static bool IsRasterFormat(string filename)
+        {
+            string ext = Path.GetExtension(filename).ToLower();
+            return (ext != ".svg");
         }
 
         static Func<Vertex[], Color> GetColorFunction(ColorBlendParams blend)
@@ -203,28 +219,33 @@ namespace TrianglePlasma
                 }
             );
         }
-
-        /*
-        static string GenerateSvg(IEnumerable<Triangle> triangles, int width, int height)
+      
+        static string GenerateSvg(IEnumerable<Triangle> triangles, int width, int height, float scale, Func<Vertex[], Color> colorFunc)
         {
+            if (scale == 0)
+                scale = 1.0f;
+
             StringBuilder sb = new StringBuilder();
 
-            sb.AppendFormat("<svg viewBox=\"0 0 {0} {1}\" xmlns=\"http://www.w3.org/2000/svg\">\n", width, height);
+            sb.AppendFormat("<svg viewBox=\"0 0 {0} {1}\" xmlns=\"http://www.w3.org/2000/svg\">\n", scale*width, scale*height);
 
             foreach (var triangle in triangles)
             {
-                string color = string.Format("rgb({0},{0},{0})", (int)(triangle.Color * 255.0));
                 sb.AppendFormat("<polygon points=\"{0}, {1} {2}, {3} {4}, {5}\" fill = \"{6}\" stroke = \"{6}\" />\n",
-                    triangle.Vertices[0].X, triangle.Vertices[0].Y,
-                    triangle.Vertices[1].X, triangle.Vertices[1].Y,
-                    triangle.Vertices[2].X, triangle.Vertices[2].Y,
-                    color
+                    scale * triangle.Vertices[0].X, scale * triangle.Vertices[0].Y,
+                    scale * triangle.Vertices[1].X, scale * triangle.Vertices[1].Y,
+                    scale * triangle.Vertices[2].X, scale * triangle.Vertices[2].Y,
+                    ColorToString( colorFunc(triangle.Vertices) )
                 );
             }
             sb.AppendLine("</svg>");
             return sb.ToString();
         }
-        */
+
+        static string ColorToString(Color c)
+        {
+            return "#" + c.R.ToString("X2") + c.G.ToString("X2") + c.B.ToString("X2");
+        }
 
         static Color GrayFromIntensity(double intensity)
         {
