@@ -116,29 +116,21 @@ namespace TrianglePlasma
 
     class ColorBlendParams
     {
-        public Color BlendFrom { get; private set; }
-        public Color BlendTo { get; private set; }
+        public List<Color> Colors { get; private set; }
         public bool IsValid {get; private set;}
 
         public ColorBlendParams(string str)
         {
             IsValid = false;
-            BlendFrom = Color.White;
-            BlendTo = Color.White;
-
-            var pieces = str.Split('-');
-            if (pieces.Count() != 2)
-                return;
             try
             {
-                BlendFrom = ColorFromHex(pieces[0]);
-                BlendTo = ColorFromHex(pieces[1]);
+                Colors = str.Split('-').Select(c => ColorFromHex(c)).ToList();
             }
             catch (Exception)
             {
                 return;
             }
-            IsValid = true;
+            IsValid = Colors.Count() > 1;
         }
 
         static private Color ColorFromHex(string hex)

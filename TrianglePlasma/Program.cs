@@ -105,7 +105,7 @@ namespace TrianglePlasma
             if (blend == null)
                 return MeanGray;
             return (Vertex[] verts) => {
-                return BlendColors(verts, blend.BlendFrom, blend.BlendTo);
+                return BlendColors(verts, blend.Colors );
             };
         }
 
@@ -259,10 +259,27 @@ namespace TrianglePlasma
             return GrayFromIntensity(intensity);
         }
 
-        static Color BlendColors(Vertex[] verts, Color blend_from, Color blend_to)
+        static Color BlendColors(Vertex[] v, List<Color> colors)
         {
-            var val = (verts[0].Value + verts[1].Value + verts[2].Value) / 3.0;
+            var val = (v[0].Value + v[1].Value + v[2].Value) / 3.0;
 
+            if (val == 0.0)
+                return colors[0];
+
+            if (val == 1.0)
+                return colors.Last();
+
+            int num_intervals = colors.Count - 1;
+            int blend_from = (int) (val * num_intervals);
+            int blend_to = blend_from + 1;
+            double interval_wd = 1.0 / num_intervals;
+            double t = (val - blend_from * interval_wd) / interval_wd;
+
+            return BlendTwoColors(t, colors[blend_from], colors[blend_to]);
+        }
+
+        static Color BlendTwoColors(double val, Color blend_from, Color blend_to)
+        {
             return Color.FromArgb(
                 Blend(blend_from.R, blend_to.R, val),
                 Blend(blend_from.G, blend_to.G, val),
